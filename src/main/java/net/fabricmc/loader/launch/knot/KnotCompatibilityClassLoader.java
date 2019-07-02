@@ -25,6 +25,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Enumeration;
 import java.util.function.UnaryOperator;
 
 import org.apache.logging.log4j.LogManager;
@@ -32,67 +33,39 @@ import org.apache.logging.log4j.Logger;
 
 class KnotCompatibilityClassLoader extends URLClassLoader implements KnotClassLoaderInterface {
 	private static final Logger LOGGER = LogManager.getFormatterLogger("KnotClassLoader");
-	private final KnotClassDelegate delegate;
+	private final KnotClassLoader realLoader;
 	private final UnaryOperator<Path> deobfuscator;
 
 	KnotCompatibilityClassLoader(boolean isDevelopment, EnvType envType, UnaryOperator<Path> deobfuscator) {
-		super(new URL[0], KnotCompatibilityClassLoader.class.getClassLoader());
-		this.delegate = new KnotClassDelegate(isDevelopment, envType, this);
+		this(new KnotClassLoader(isDevelopment, envType), deobfuscator);
+	}
+
+	private KnotCompatibilityClassLoader(KnotClassLoader parent, UnaryOperator<Path> deobfuscator) {
+		super(new URL[0], parent);
+		this.realLoader = parent;
 		this.deobfuscator = deobfuscator;
 	}
 
 	@Override
 	public KnotClassDelegate getDelegate() {
-		return delegate;
+		return realLoader.getDelegate();
 	}
 
 	@Override
 	public boolean isClassLoaded(String name) {
-		synchronized (getClassLoadingLock(name)) {
-			return findLoadedClass(name) != null;
-		}
+		return realLoader.isClassLoaded(name);
 	}
 
 	@Override
 	protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
-		synchronized (getClassLoadingLock(name)) {
-			Class<?> c = findLoadedClass(name);
-
-			if (c == null) {
-				byte[] input = delegate.loadClassData(name, resolve);
-				if (input != null) {
-					KnotClassDelegate.Metadata metadata = delegate.getMetadata(name, getResource(delegate.getClassFileName(name)));
-
-					int pkgDelimiterPos = name.lastIndexOf('.');
-					if (pkgDelimiterPos > 0) {
-						// TODO: package definition stub
-						String pkgString = name.substring(0, pkgDelimiterPos);
-						if (getPackage(pkgString) == null) {
-							definePackage(pkgString, null, null, null, null, null, null, null);
-						}
-					}
-
-					c = defineClass(name, input, 0, input.length, metadata.codeSource);
-				}
-			}
-
-			if (c == null) {
-				c = getParent().loadClass(name);
-			}
-
-			if (resolve) {
-				resolveClass(c);
-			}
-
-			return c;
-		}
+		return realLoader.loadClass(name, resolve);
 	}
 
 	@Override
 	public void addURL(URL url) {
 		//Skip trying to remap Fabric mods, they should already be using the target mappings
-		if (!delegate.hasInitializeTransformers()) {
-			super.addURL(url);
+		if (!getDelegate().hasInitializeTransformers()) {
+			realLoader.addURL(url);
 			return;
 		}
 
@@ -101,10 +74,10 @@ class KnotCompatibilityClassLoader extends URLClassLoader implements KnotClassLo
 			assert Files.exists(input);
 
 			Path remappedInput = deobfuscator.apply(input);
-			super.addURL(UrlUtil.asUrl(remappedInput));
+			realLoader.addURL(UrlUtil.asUrl(remappedInput));
 		} catch (Throwable t) {
 			LOGGER.debug("Unable to find file representation of " + url + ", skipping deobfuscation", t);
-			super.addURL(url);
+			realLoader.addURL(url);
 		}
 	}
 
@@ -113,13 +86,17 @@ class KnotCompatibilityClassLoader extends URLClassLoader implements KnotClassLo
 	}
 
 	@Override
+	public Enumeration<URL> getResources(String name) throws IOException {
+		return realLoader.getResources(name);
+	}
+	
+	@Override
+	public URL getResource(String name) {
+		return realLoader.getResource(name);
+	}
+	
+	@Override
 	public InputStream getResourceAsStream(String classFile, boolean skipOriginalLoader) throws IOException {
-		if (skipOriginalLoader) {
-			if (findResource(classFile) == null) {
-				return null;
-			}
-		}
-
-		return super.getResourceAsStream(classFile);
+		return realLoader.getResourceAsStream(classFile, skipOriginalLoader);
 	}
 }
