@@ -18,14 +18,21 @@ package net.fabricmc.loader.game;
 
 import net.fabricmc.api.EnvType;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 
 public interface GameProvider {
+	default boolean hasGameID() {
+		return !getGameId().isEmpty();
+	}
 	String getGameId();
 	String getGameName();
 	String getEntrypoint();
 	Path getLaunchDirectory();
+	default Path getDeobfJarDirectory() {
+		return getLaunchDirectory().resolve(".fabric" + File.separator + "remappedJars" + (hasGameID() ? File.separator + getGameId() : ""));
+	}
 	boolean isObfuscated();
 	boolean requiresUrlClassLoader();
 	List<Path> getGameContextJars();

@@ -104,8 +104,7 @@ public final class Knot extends FabricLauncherBase {
 
 		for (Path path : provider.getGameContextJars()) {
 			FabricLauncherBase.deobfuscate(
-				provider.getGameId(),
-				provider.getLaunchDirectory(),
+				provider.getDeobfJarDirectory(),
 				path,
 				this
 			);

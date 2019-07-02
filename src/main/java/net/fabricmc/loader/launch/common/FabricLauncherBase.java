@@ -66,7 +66,7 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 
 	private static boolean emittedInfo = false;
 
-	protected static void deobfuscate(String gameId, Path gameDir, Path jarFile, FabricLauncher launcher) {
+	protected static void deobfuscate(Path deobfJarDir, Path jarFile, FabricLauncher launcher) {
 		Path resultJarFile = jarFile;
 
 		LOGGER.debug("Requesting deobfuscation of " + jarFile.getFileName());
@@ -82,24 +82,19 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 					throw new RuntimeException("Could not locate Minecraft: " + jarFile + " not found");
 				}
 
-				// TODO: migrate to Path
-				File deobfJarDir = new File(gameDir.toFile(), ".fabric" + File.separator + "remappedJars" + (gameId.isEmpty() ? "" : File.separator + gameId));
-				if (!deobfJarDir.exists()) {
-					deobfJarDir.mkdirs();
+				if (Files.notExists(deobfJarDir)) {
+					Files.createDirectories(deobfJarDir);
 				}
 
 				// TODO: allow versioning mappings?
 				String deobfJarFilename = mappingConfiguration.getTargetNamespace() + "-" + jarFile.getFileName();
-				File deobfJarFile = new File(deobfJarDir, deobfJarFilename);
-				File deobfJarFileTmp = new File(deobfJarDir, deobfJarFilename + ".tmp");
-
-				Path deobfJarPath = deobfJarFile.toPath();
-				Path deobfJarPathTmp = deobfJarFileTmp.toPath();
+				Path deobfJarPath = deobfJarDir.resolve(deobfJarFilename);
+				Path deobfJarPathTmp = deobfJarDir.resolve(deobfJarFilename + ".tmp");
 
 				if (Files.exists(deobfJarPathTmp)) {
 					LOGGER.warn("Incomplete remapped file found! This means that the remapping process failed on the previous launch. If this persists, make sure to let us at Fabric know!");
 					Files.deleteIfExists(deobfJarPathTmp);
-					deobfJarFileTmp.delete();
+					assert Files.notExists(deobfJarPathTmp);
 				}
 
 				if (!Files.exists(deobfJarPath)) {
@@ -177,19 +172,20 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 							}
 						}
 
-						deobfJarFileTmp.renameTo(deobfJarFile);
+						Files.move(deobfJarPathTmp, deobfJarPath);
 
-						JarFile jar = new JarFile(deobfJarFile);
-						if (jar.stream().noneMatch((e) -> e.getName().endsWith(".class"))) {
-							LOGGER.error("Generated deobfuscated JAR contains no classes! Trying again...");
-							deobfJarFile.delete();
-						} else {
-							found = true;
+						try (JarFile jar = new JarFile(deobfJarPath.toFile())) {
+							if (jar.stream().noneMatch((e) -> e.getName().endsWith(".class"))) {
+								LOGGER.error("Generated deobfuscated JAR contains no classes! Trying again...");
+								Files.delete(deobfJarPath);
+							} else {
+								found = true;
+							}
 						}
 					}
 				}
 
-				if (!deobfJarFile.exists()) {
+				if (Files.notExists(deobfJarPath)) {
 					throw new RuntimeException("Remapped .JAR file does not exist after remapping! Cannot continue!");
 				}
 

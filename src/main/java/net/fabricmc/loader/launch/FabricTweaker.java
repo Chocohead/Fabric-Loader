@@ -102,7 +102,7 @@ public abstract class FabricTweaker extends FabricLauncherBase implements ITweak
 					throw new RuntimeException("Could not locate Minecraft: " + jarFile.getAbsolutePath() + " not found");
 				}
 
-				FabricLauncherBase.deobfuscate("", gameDir.toPath(), jarFile.toPath(), this);
+				FabricLauncherBase.deobfuscate(new File(gameDir, ".fabric" + File.separator + "remappedJars").toPath(), jarFile.toPath(), this);
 			} catch (IOException | UrlConversionException e) {
 				throw new RuntimeException("Failed to deobfuscate Minecraft!", e);
 			}
