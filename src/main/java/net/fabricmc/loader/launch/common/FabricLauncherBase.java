@@ -21,6 +21,8 @@ import net.fabricmc.loader.util.mappings.TinyRemapperMappingsHelper;
 import net.fabricmc.loader.util.UrlConversionException;
 import net.fabricmc.loader.util.UrlUtil;
 import net.fabricmc.loader.util.Arguments;
+import net.fabricmc.loader.util.FileSystemUtil;
+import net.fabricmc.loader.util.FileSystemUtil.FileSystemDelegate;
 import net.fabricmc.mappings.Mappings;
 import net.fabricmc.tinyremapper.OutputConsumerPath;
 import net.fabricmc.tinyremapper.TinyRemapper;
@@ -33,10 +35,13 @@ import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
-import java.util.jar.JarFile;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public abstract class FabricLauncherBase implements FabricLauncher {
 	public static Path minecraftJar;
@@ -132,7 +137,7 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 							}
 						}
 
-						try (OutputConsumerPath outputConsumer = new OutputConsumerPath(deobfJarPath) {
+						try (FileSystemDelegate fs = FileSystemUtil.getJarFileSystem(deobfJarPathTmp, true); OutputConsumerPath outputConsumer = new OutputConsumerPath(fs.get().getPath("/")) {
 							@Override
 							public void accept(String clsName, byte[] data) {
 								// don't accept class names from a blacklist of dependencies that Fabric itself utilizes
@@ -179,8 +184,24 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 
 						Files.move(deobfJarPathTmp, deobfJarPath);
 
-						try (JarFile jar = new JarFile(deobfJarPath.toFile())) {
-							if (jar.stream().noneMatch((e) -> e.getName().endsWith(".class"))) {
+						try (FileSystemDelegate fs = FileSystemUtil.getJarFileSystem(deobfJarPath, false)) {
+							AtomicBoolean foundClass = new AtomicBoolean(false);
+
+							for (Path root : fs.get().getRootDirectories()) {
+								Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+									@Override
+									public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+										if (file.getFileName().toString().endsWith(".class")) {
+											foundClass.set(true);
+											return FileVisitResult.TERMINATE;
+										}
+
+										return FileVisitResult.CONTINUE;
+									}
+								});
+							}
+
+							if (!foundClass.get()) {
 								LOGGER.error("Generated deobfuscated JAR contains no classes! Trying again...");
 								Files.delete(deobfJarPath);
 							} else {
