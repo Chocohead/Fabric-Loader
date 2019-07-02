@@ -68,6 +68,10 @@ class KnotClassDelegate {
 		this.itf = itf;
 	}
 
+	public boolean hasInitializeTransformers() {
+		return transformInitialized;
+	}
+
 	public void initializeTransformers() {
 		if (transformInitialized) {
 			throw new RuntimeException("Cannot initialize KnotClassDelegate twice!");

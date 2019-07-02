@@ -90,6 +90,12 @@ class KnotCompatibilityClassLoader extends URLClassLoader implements KnotClassLo
 
 	@Override
 	public void addURL(URL url) {
+		//Skip trying to remap Fabric mods, they should already be using the target mappings
+		if (!delegate.hasInitializeTransformers()) {
+			super.addURL(url);
+			return;
+		}
+
 		try {
 			Path input = UrlUtil.asPath(url);
 			assert Files.exists(input);
