@@ -17,18 +17,28 @@
 package net.fabricmc.loader.launch.knot;
 
 import net.fabricmc.api.EnvType;
+import net.fabricmc.loader.util.UrlUtil;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.function.UnaryOperator;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 class KnotCompatibilityClassLoader extends URLClassLoader implements KnotClassLoaderInterface {
+	private static final Logger LOGGER = LogManager.getFormatterLogger("KnotClassLoader");
 	private final KnotClassDelegate delegate;
+	private final UnaryOperator<Path> deobfuscator;
 
-	KnotCompatibilityClassLoader(boolean isDevelopment, EnvType envType) {
+	KnotCompatibilityClassLoader(boolean isDevelopment, EnvType envType, UnaryOperator<Path> deobfuscator) {
 		super(new URL[0], KnotCompatibilityClassLoader.class.getClassLoader());
 		this.delegate = new KnotClassDelegate(isDevelopment, envType, this);
+		this.deobfuscator = deobfuscator;
 	}
 
 	@Override
@@ -80,7 +90,16 @@ class KnotCompatibilityClassLoader extends URLClassLoader implements KnotClassLo
 
 	@Override
 	public void addURL(URL url) {
-		super.addURL(url);
+		try {
+			Path input = UrlUtil.asPath(url);
+			assert Files.exists(input);
+
+			Path remappedInput = deobfuscator.apply(input);
+			super.addURL(UrlUtil.asUrl(remappedInput));
+		} catch (Throwable t) {
+			LOGGER.debug("Unable to find file representation of " + url + ", skipping deobfuscation", t);
+			super.addURL(url);
+		}
 	}
 
 	static {

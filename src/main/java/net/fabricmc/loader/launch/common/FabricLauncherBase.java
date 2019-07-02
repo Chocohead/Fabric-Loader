@@ -40,6 +40,7 @@ import java.util.jar.JarFile;
 
 public abstract class FabricLauncherBase implements FabricLauncher {
 	public static Path minecraftJar;
+	private static Path obfMinecraftJar;
 
 	protected static Logger LOGGER = LogManager.getFormatterLogger("FabricLoader");
 	private static boolean mixinReady;
@@ -66,7 +67,7 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 
 	private static boolean emittedInfo = false;
 
-	protected static void deobfuscate(Path deobfJarDir, Path jarFile, FabricLauncher launcher) {
+	private static Path deobfuscate(Path deobfJarDir, Path jarFile, String name, FabricLauncher launcher) {
 		Path resultJarFile = jarFile;
 
 		LOGGER.debug("Requesting deobfuscation of " + jarFile.getFileName());
@@ -79,7 +80,7 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 
 			try {
 				if (!Files.exists(jarFile)) {
-					throw new RuntimeException("Could not locate Minecraft: " + jarFile + " not found");
+					throw new RuntimeException("Could not locate " + name + ": " + jarFile + " not found");
 				}
 
 				if (Files.notExists(deobfJarDir)) {
@@ -100,7 +101,7 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 				if (!Files.exists(deobfJarPath)) {
 					boolean found = false;
 					while (!found) {
-						if (!emittedInfo) {
+						if (!emittedInfo && "Minecraft".equals(name)) {
 							LOGGER.info("Fabric is preparing JARs on first launch, this may take a few seconds...");
 							emittedInfo = true;
 						}
@@ -112,6 +113,10 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 
 						Set<Path> depPaths = new HashSet<>();
 
+						if (!"Minecraft".equals(name)) {
+							depPaths.add(obfMinecraftJar);
+						}
+						
 						for (URL url : launcher.getLoadTimeDependencies()) {
 							try {
 								Path path = UrlUtil.asPath(url);
@@ -195,6 +200,12 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 			}
 		}
 
+		return resultJarFile;
+	}
+
+	protected static void deobfuscateMinecraft(Path deobfJarDir, Path obfMinecraftJar, FabricLauncher launcher) {
+		Path resultJarFile = deobfuscate(deobfJarDir, FabricLauncherBase.obfMinecraftJar = obfMinecraftJar, "Minecraft", launcher);
+
 		try {
 			launcher.propose(UrlUtil.asUrl(resultJarFile));
 		} catch (UrlConversionException e) {
@@ -204,6 +215,10 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 		if (minecraftJar == null) {
 			minecraftJar = resultJarFile;
 		}
+	}
+
+	protected static Path deobfuscate(Path deobfJarDir, Path jarFile, FabricLauncher launcher) {
+		return deobfuscate(deobfJarDir, jarFile, "Jar", launcher);
 	}
 
 	public static void processArgumentMap(Arguments argMap, EnvType envType) {

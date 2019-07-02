@@ -100,10 +100,10 @@ public final class Knot extends FabricLauncherBase {
 		// Setup classloader
 		// TODO: Provide KnotCompatibilityClassLoader in non-exclusive-Fabric pre-1.13 environments?
 		boolean useCompatibility = provider.requiresUrlClassLoader() || Boolean.parseBoolean(System.getProperty("fabric.loader.useCompatibilityClassLoader", "false"));
-		loader = useCompatibility ? new KnotCompatibilityClassLoader(isDevelopment(), envType) : new KnotClassLoader(isDevelopment(), envType);
+		loader = useCompatibility ? new KnotCompatibilityClassLoader(isDevelopment(), envType, jar -> deobfuscate(provider.getDeobfJarDirectory(), jar, this)) : new KnotClassLoader(isDevelopment(), envType);
 
 		for (Path path : provider.getGameContextJars()) {
-			FabricLauncherBase.deobfuscate(
+			FabricLauncherBase.deobfuscateMinecraft(
 				provider.getDeobfJarDirectory(),
 				path,
 				this
