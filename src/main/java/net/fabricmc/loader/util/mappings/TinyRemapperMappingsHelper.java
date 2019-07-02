@@ -33,11 +33,13 @@ public class TinyRemapperMappingsHelper {
 
 			for (FieldEntry entry : mappings.getFieldEntries()) {
 				EntryTriple fromTriple = entry.get(from);
+				if (fromTriple == null) continue;
 				fieldMap.put(fromTriple.getOwner() + "/" + MemberInstance.getFieldId(fromTriple.getName(), fromTriple.getDesc()), entry.get(to).getName());
 			}
 
 			for (MethodEntry entry : mappings.getMethodEntries()) {
 				EntryTriple fromTriple = entry.get(from);
+				if (fromTriple == null) continue;
 				methodMap.put(fromTriple.getOwner() + "/" + MemberInstance.getMethodId(fromTriple.getName(), fromTriple.getDesc()), entry.get(to).getName());
 			}
 		};
