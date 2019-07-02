@@ -106,7 +106,7 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 						}
 
 						TinyRemapper remapper = TinyRemapper.newRemapper()
-							.withMappings(TinyRemapperMappingsHelper.create(mappings, "official", targetNamespace))
+							.withMappings(TinyRemapperMappingsHelper.create(mappings, mappingConfiguration.getOriginNamespace(), targetNamespace))
 							.rebuildSourceFilenames(true)
 							.build();
 

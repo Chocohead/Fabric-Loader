@@ -23,6 +23,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Locale;
 
 public class MappingConfiguration {
 	protected static Logger LOGGER = LogManager.getFormatterLogger("FabricLoader");
@@ -58,6 +59,11 @@ public class MappingConfiguration {
 		}
 
 		return mappings;
+	}
+
+	public String getOriginNamespace() {
+		String side = FabricLauncherBase.getLauncher().getEnvironmentType().name().toLowerCase(Locale.ENGLISH);
+		return getMappings().getNamespaces().contains(side) ? side : "official";
 	}
 
 	public String getTargetNamespace() {
