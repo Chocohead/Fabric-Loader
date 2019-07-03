@@ -299,29 +299,33 @@ public class FabricLoader implements net.fabricmc.loader.api.FabricLoader {
 		if (gameInstance != null && FabricLauncherBase.getLauncher() instanceof Knot) {
 			ClassLoader gameClassLoader = gameInstance.getClass().getClassLoader();
 			ClassLoader targetClassLoader = FabricLauncherBase.getLauncher().getTargetClassLoader();
-			boolean matchesKnot = (gameClassLoader == targetClassLoader);
-			boolean containsKnot = false;
 
-			if (matchesKnot) {
-				containsKnot = true;
+			if (gameClassLoader == targetClassLoader) {
+				getLogger().debug("Environment: Target class loader is the game class loader (%s).", targetClassLoader.getClass().getSimpleName());
 			} else {
-				gameClassLoader = gameClassLoader.getParent();
-				while (gameClassLoader != null && gameClassLoader.getParent() != gameClassLoader) {
-					if (gameClassLoader == targetClassLoader) {
-						containsKnot = true;
-					}
-					gameClassLoader = gameClassLoader.getParent();
-				}
-			}
+				boolean containsKnot = false;
 
-			if (!matchesKnot) {
-				if (containsKnot) {
-					getLogger().info("Environment: Target class loader is parent of game class loader.");
-				} else {
+				for (ClassLoader gameCL = gameClassLoader.getParent(); gameCL != null; gameCL = gameCL.getParent()) {
+					if (gameCL == targetClassLoader) {
+						containsKnot = true;
+						getLogger().info("Environment: Target class loader (%s) is parent of game class loader (%s).", targetClassLoader.getClass().getSimpleName(), gameClassLoader.getClass().getSimpleName());
+						break;
+					}
+				}
+
+				for (ClassLoader targetCL = targetClassLoader.getParent(); !containsKnot && targetCL != null; targetCL = targetCL.getParent()) {
+					if (gameClassLoader == targetCL) {
+						containsKnot = true;
+						getLogger().info("Environment: Target class loader (%s) is child of game class loader (%s).", targetClassLoader.getClass().getSimpleName(), gameClassLoader.getClass().getSimpleName());
+						break;
+					}
+				}
+
+				if (!containsKnot) {
 					getLogger().warn("\n\n* CLASS LOADER MISMATCH! THIS IS VERY BAD AND WILL PROBABLY CAUSE WEIRD ISSUES! *\n"
-						+ " - Expected game class loader: " + FabricLauncherBase.getLauncher().getTargetClassLoader() + "\n"
-						+ " - Actual game class loader: " + gameClassLoader + "\n"
-						+ "Could not find the expected class loader in game class loader parents!\n");
+									+ " - Expected game class loader: " + targetClassLoader + "\n"
+									+ " - Actual game class loader: " + gameClassLoader + "\n"
+									+ "Could not find the expected class loader in game class loader parents!\n");
 				}
 			}
 		}
