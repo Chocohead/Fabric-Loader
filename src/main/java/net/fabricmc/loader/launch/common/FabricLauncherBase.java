@@ -107,7 +107,7 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 
 		LOGGER.debug("Requesting deobfuscation of " + jarFile.getFileName());
 
-		Mappings mappings = launcher.isDevelopment() ? null : mappingConfiguration.getMappings();
+		Mappings mappings = launcher.isDevelopment() && "Minecraft".equals(name) ? null : mappingConfiguration.getMappings();
 		String targetNamespace = mappingConfiguration.getTargetNamespace();
 
 		if (mappings != null && mappings.getNamespaces().contains(targetNamespace)) {
