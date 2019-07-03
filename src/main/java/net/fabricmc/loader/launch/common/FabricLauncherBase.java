@@ -122,8 +122,12 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 					Files.createDirectories(deobfJarDir);
 				}
 
+				if (minecraftJar != null && minecraftJar.equals(jarFile)) {
+					//Avoid double mapping Minecraft, which can happen when FML loads mods out of the jar (such as Forge)
+					return minecraftJar;
+				}
 				if (Files.exists(deobfJarDir.resolve(jarFile.getFileName()))) {
-					//Avoid double mapping things, can happen when FML loads mods out of the Minecraft jar (such as Forge)
+					//Avoid double mapping any other jar that's already done, can happen if a jar contains multiple mods (like BuildCraft)
 					return deobfJarDir.resolve(jarFile.getFileName());
 				}
 				
