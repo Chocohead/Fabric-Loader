@@ -122,6 +122,11 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 					Files.createDirectories(deobfJarDir);
 				}
 
+				if (Files.exists(deobfJarDir.resolve(jarFile.getFileName()))) {
+					//Avoid double mapping things, can happen when FML loads mods out of the Minecraft jar (such as Forge)
+					return deobfJarDir.resolve(jarFile.getFileName());
+				}
+				
 				// TODO: allow versioning mappings?
 				String deobfJarFilename = mappingConfiguration.getTargetNamespace() + "-" + jarFile.getFileName();
 				Path deobfJarPath = deobfJarDir.resolve(deobfJarFilename);
@@ -236,6 +241,28 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 								LOGGER.error("Generated deobfuscated JAR contains no classes! Trying again...");
 								Files.delete(deobfJarPath);
 							} else {
+								if (!"Minecraft".equals(name)) {
+									try (FileSystemDelegate oldFS = FileSystemUtil.getJarFileSystem(jarFile, false)) {
+										for (Path root : oldFS.get().getRootDirectories()) {
+											Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+												@Override
+												public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+													if (!file.getFileName().toString().endsWith(".class")) {
+														Path to = fs.get().getPath(file.toString());
+														if (to.getParent() != null) {
+												            Files.createDirectories(to.getParent());
+												        }
+
+														Files.copy(file, to);
+													}
+
+													return FileVisitResult.CONTINUE;
+												}
+											});
+										}
+									}
+								}
+
 								found = true;
 							}
 						}
