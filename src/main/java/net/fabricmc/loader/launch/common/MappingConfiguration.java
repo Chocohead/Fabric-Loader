@@ -72,6 +72,6 @@ public class MappingConfiguration {
 
 	public boolean requiresPackageAccessHack() {
 		// TODO
-		return getTargetNamespace().equals("named");
+		return "named".equals(getTargetNamespace()) || !"official".equals(getOriginNamespace());
 	}
 }

@@ -24,6 +24,7 @@ import net.fabricmc.loader.util.Arguments;
 import net.fabricmc.loader.util.FileSystemUtil;
 import net.fabricmc.loader.util.FileSystemUtil.FileSystemDelegate;
 import net.fabricmc.mappings.Mappings;
+import net.fabricmc.tinyremapper.IMappingProvider;
 import net.fabricmc.tinyremapper.OutputConsumerPath;
 import net.fabricmc.tinyremapper.TinyRemapper;
 import org.apache.logging.log4j.LogManager;
@@ -72,6 +73,35 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 
 	private static boolean emittedInfo = false;
 
+	private static IMappingProvider shiftRootPackages(Path jarFile, String name) {
+		return (classMap, fieldMap, methodMap) -> {
+			if (!"Minecraft".equals(name)) {
+				try (FileSystemDelegate fs = FileSystemUtil.getJarFileSystem(jarFile, false)) {
+					for (Path root : fs.get().getRootDirectories()) {
+						Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
+							@Override
+						    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+						        return dir.getParent() == null ? FileVisitResult.CONTINUE : FileVisitResult.SKIP_SIBLINGS;
+						    }
+							
+							@Override
+							public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+								String name = file.getFileName().toString();
+								if (name.endsWith(".class")) {
+									classMap.put(name.substring(0, name.length() - 6), "net/minecraft/" + name.substring(0, name.length() - 6));
+								}
+
+								return FileVisitResult.CONTINUE;
+							}
+						});
+					}
+				} catch (IOException e) {
+					throw new RuntimeException("Error shifting root package classes", e);
+				}
+			}
+		};
+	}
+	
 	private static Path deobfuscate(Path deobfJarDir, Path jarFile, String name, FabricLauncher launcher) {
 		Path resultJarFile = jarFile;
 
@@ -113,6 +143,7 @@ public abstract class FabricLauncherBase implements FabricLauncher {
 
 						TinyRemapper remapper = TinyRemapper.newRemapper()
 							.withMappings(TinyRemapperMappingsHelper.create(mappings, mappingConfiguration.getOriginNamespace(), targetNamespace))
+							//.withMappings(shiftRootPackages(jarFile, name))
 							.rebuildSourceFilenames(true)
 							.build();
 

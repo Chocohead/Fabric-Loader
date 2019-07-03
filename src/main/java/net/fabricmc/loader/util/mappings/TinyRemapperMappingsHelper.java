@@ -28,7 +28,7 @@ public class TinyRemapperMappingsHelper {
 	public static IMappingProvider create(Mappings mappings, String from, String to) {
 		return (classMap, fieldMap, methodMap) -> {
 			for (ClassEntry entry : mappings.getClassEntries()) {
-				classMap.put(entry.get(from), entry.get(to));
+				classMap.put(entry.get(from), entry.get(to)/*.substring("net/minecraft/".length())*/);
 			}
 
 			for (FieldEntry entry : mappings.getFieldEntries()) {
